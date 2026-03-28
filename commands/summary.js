@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getExpenseSummary } = require('../services/sheetService');
-const logger = require('../utils/logger');
 const { getExchangeRate } = require('../services/exchangeService');
+const logger = require('../utils/logger');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -22,19 +22,19 @@ module.exports = {
       option.setName('category')
         .setDescription('Filter by expense category')
         .setRequired(false)),
-        
-async execute(interaction) {
+
+  async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
-    
+
     try {
       const userId = interaction.user.id;
       const period = interaction.options.getString('period') || 'month';
       const category = interaction.options.getString('category');
-      
+
       const options = { category };
       const now = new Date();
-      
-      // --- 時間過濾邏輯 (保持不變) ---
+
+      // 時間過濾邏輯
       if (period === 'today') {
         options.startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       } else if (period === 'week') {
@@ -47,16 +47,16 @@ async execute(interaction) {
       } else if (period === 'year') {
         options.startDate = new Date(now.getFullYear(), 0, 1);
       }
-      
+
       const { expenses } = await getExpenseSummary(userId, options);
-      
+
       if (expenses.length === 0) {
         return interaction.editReply('No expenses found for the selected period.');
       }
-      
-      // --- 核心匯率換算與分類統計 ---
+
+      // 匯率換算與分類統計
       let totalTWD = 0;
-      const categoriesTWD = {}; // 用台幣統計各分類
+      const categoriesTWD = {};
 
       await Promise.all(expenses.map(async (expense) => {
         const rate = await getExchangeRate(expense.currency, 'TWD');
@@ -67,7 +67,7 @@ async execute(interaction) {
         categoriesTWD[cat] = (categoriesTWD[cat] || 0) + amountTWD;
       }));
 
-      // --- 建立單一 Embed (修正重複宣告問題) ---
+      // 建立 Embed 顯示
       const summaryEmbed = new EmbedBuilder()
         .setTitle('📊 支出總結 (已換算台幣)')
         .setColor('#0099ff')
@@ -78,28 +78,24 @@ async execute(interaction) {
           { name: '平均每筆', value: `NT$ ${Math.round(totalTWD / expenses.length).toLocaleString()}`, inline: true }
         );
 
-      // 產生分類明細字串
       const categoryBreakdown = Object.entries(categoriesTWD)
-        .sort((a, b) => b[1] - a[1]) // 由大到小排序
+        .sort((a, b) => b[1] - a[1])
         .map(([name, amount]) => `**${name}**: NT$ ${Math.round(amount).toLocaleString()}`)
         .join('\n');
-      
+
       summaryEmbed.addFields({ name: '分類統計 (台幣)', value: categoryBreakdown || '無數據', inline: false });
       summaryEmbed.setFooter({ text: `匯率參考自 Yahoo Finance • 生成日期 ${now.toLocaleDateString()}` });
-      
+
       await interaction.editReply({ embeds: [summaryEmbed] });
-      
+
     } catch (error) {
       logger.error('Error generating summary:', error);
-      await interaction.editReply('產生總結時出錯，請確認 Yahoo Finance API 是否正常。');
+      await interaction.editReply('產生總結時出錯，請檢查後端日誌。');
     }
-  }
-};
-/**
- * Get a human-readable description of the time period
- * @param {string} period - The period identifier
- * @returns {string} - Human readable period description
- */
+  } // <-- execute 結束
+}; // <-- module.exports 結束
+
+// Helper function 放在外面
 function getPeriodText(period) {
   switch (period) {
     case 'today': return 'Today';
