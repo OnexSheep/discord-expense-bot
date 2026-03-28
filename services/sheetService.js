@@ -7,8 +7,14 @@ const logger = require('../utils/logger');
 // Initialize auth
 const getJwtClient = () => {
   try {
-    // ✅ 直接解析環境變數中的 JSON 字串，不要用 fs.readFileSync
-    const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+    // 同時檢查兩個可能的變數名稱
+    const envJson = process.env.GOOGLE_CREDENTIALS || process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    
+    if (!envJson) {
+      throw new Error('Google credentials environment variable is missing');
+    }
+
+    const credentials = JSON.parse(envJson);
     
     return new JWT({
       email: credentials.client_email,
@@ -16,11 +22,10 @@ const getJwtClient = () => {
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
   } catch (error) {
-    logger.error('Error loading Google credentials:', error);
+    logger.error('Error loading Google credentials:', error.message);
     throw new Error('Failed to load Google credentials');
   }
 };
-
 /**
  * Add an expense to the Google Sheet
  * @param {Object} expense - The expense object to add
