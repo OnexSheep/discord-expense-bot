@@ -90,17 +90,18 @@ let sheet = doc.sheetsByTitle['Expenses'];
     await addDateDividerIfNeeded(sheet, formattedDate);
 
     // ✅ 寫入消費資料
-    await sheet.addRow({
-      Timestamp: new Date().toISOString(),
-      'User ID': expense.userId,
-      Username: expense.username,
-      Amount: expense.amount,
-      Currency: expense.currency,
-      'Amount (TWD)': Math.round(expense.amount * rate), // 四捨五入到整數
-      Description: expense.description,
-      Category: expense.category || 'Uncategorized',
-      Date: formattedDate
-    });
+// 檢查這部分的 Key
+await sheet.addRow({
+  Timestamp: new Date().toISOString(),
+  'User ID': expense.userId,    // 確保有空格
+  Username: expense.username,
+  Amount: expense.amount,
+  Currency: expense.currency,
+  'Amount (TWD)': Math.round(expense.amount * rate), // 確保名稱一致
+  Description: expense.description,
+  Category: expense.category || 'Uncategorized',
+  Date: formattedDate
+});
     
     logger.info(`Added expense: ${expense.amount} ${expense.currency}`);
     return true;
