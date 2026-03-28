@@ -27,6 +27,36 @@ const getJwtClient = (scopes = ['https://www.googleapis.com/auth/spreadsheets'])
   }
 };
 
+/**
+ * 檢查日期並在需要時插入分隔列
+ */
+async function addDateDividerIfNeeded(sheet, currentDate) {
+  const rows = await sheet.getRows();
+  
+  // 如果表單是空的，不需要分隔線
+  if (rows.length === 0) return;
+
+  const lastRow = rows[rows.length - 1];
+  const lastDate = lastRow.get('Date');
+
+  // 如果最後一筆資料的日期與現在不同，插入分隔列
+  if (lastDate && lastDate !== currentDate) {
+    await sheet.addRow({
+      Timestamp: '---',
+      Username: '---',
+      Amount: '---',
+      Currency: '---',
+      'Amount (TWD)': '---',
+      Description: `📅 新的一天：${currentDate} ----------------`,
+      Category: '---',
+      Date: currentDate
+    });
+    
+    // (進階) 你甚至可以在這裡呼叫格式化，讓這一列變顏色，但目前先求有資料
+    logger.info(`Inserted date divider for ${currentDate}`);
+  }
+}
+
 async function addExpenseToSheet(expense) {
   try {
     if (!process.env.GOOGLE_SHEETS_ID) {
@@ -48,18 +78,27 @@ async function addExpenseToSheet(expense) {
     }
     
     const date = new Date(expense.timestamp);
-    const formattedDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    
-  await sheet.addRow({
-    Timestamp: new Date().toISOString(),
-    Username: expense.username,
-    Amount: expense.amount,
-    Currency: expense.currency,
-    'Amount (TWD)': expense.amount * exchangeRate, // 這裡用我們抓到的匯率
-    Description: expense.description,
-    Category: expense.category,
-    Date: new Date().toLocaleDateString()
-  });
+// 取得當前匯率與日期
+    const rate = await getExchangeRate(expense.currency, 'TWD');
+    const formattedDate = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', month: 'short', day: 'numeric' 
+    });
+
+    // ✅ 呼叫分隔線函數
+    await addDateDividerIfNeeded(sheet, formattedDate);
+
+    // ✅ 寫入消費資料
+    await sheet.addRow({
+      Timestamp: new Date().toISOString(),
+      'User ID': expense.userId,
+      Username: expense.username,
+      Amount: expense.amount,
+      Currency: expense.currency,
+      'Amount (TWD)': Math.round(expense.amount * rate), // 四捨五入到整數
+      Description: expense.description,
+      Category: expense.category || 'Uncategorized',
+      Date: formattedDate
+    });
     
     logger.info(`Added expense: ${expense.amount} ${expense.currency}`);
     return true;
