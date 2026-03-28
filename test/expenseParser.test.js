@@ -1,49 +1,64 @@
 const currencyMap = {
-  // 港幣支援
-  '港幣': 'HKD',
-  'hkd': 'HKD',
-  'hk$': 'HKD',
-  
-  // 日幣支援 (為了 6 月大阪 Hotel Nikko Osaka 行)
-  '日幣': 'JPY',
-  '日元': 'JPY',
-  'jpy': 'JPY',
-  'yen': 'JPY',
-  
-  // 其他常見幣別
-  '台幣': 'TWD',
-  'twd': 'TWD',
-  'ntd': 'TWD',
-  '美金': 'USD',
-  'usd': 'USD',
-  '$': 'USD',
-  '歐元': 'EUR',
-  'eur': 'EUR'
+  '港幣': 'HKD', 'hkd': 'HKD', 'hk$': 'HKD',
+
+  '日幣': 'JPY', '日元': 'JPY', 'jpy': 'JPY', 'yen': 'JPY', '¥': 'JPY',
+
+  '台幣': 'TWD', 'twd': 'TWD', 'ntd': 'TWD',
+
+  '美金': 'USD', 'usd': 'USD',
+
+  '歐元': 'EUR', 'eur': 'EUR'
 };
+
+function normalizeCurrency(input) {
+  if (!input) return null;
+  input = input.toLowerCase().trim();
+
+  return currencyMap[input] || null;
+}
+
 function parseExpense(content) {
-  // 1. 強大的 Regex：抓取 [金額] [可能是幣別的字] [描述/分類]
+  const text = content.trim();
+
+  // 🔥 支援 ¥1000 / $1000
+  const symbolMatch = text.match(/^([¥$])\s*(\d+(?:\.\d+)?)(.*)$/);
+  if (symbolMatch) {
+    const symbolMap = { '¥': 'JPY', '$': 'USD' };
+    return {
+      amount: parseFloat(symbolMatch[2]),
+      currency: symbolMap[symbolMatch[1]],
+      description: symbolMatch[3].trim() || 'No description',
+      category: null
+    };
+  }
+
+  // 🔥 支援 1000yen / 1000jpy
+  const inlineMatch = text.match(/^(\d+(?:\.\d+)?)([a-zA-Z¥$]+)\s*(.*)$/);
+  if (inlineMatch) {
+    const currency = normalizeCurrency(inlineMatch[2]);
+    if (currency) {
+      return {
+        amount: parseFloat(inlineMatch[1]),
+        currency,
+        description: inlineMatch[3].trim() || 'No description',
+        category: null
+      };
+    }
+  }
+
+  // 🔥 原本邏輯（fallback）
   const regex = /^(\d+(?:\.\d+)?)\s*([^\s#]*)?\s*(.*)$/;
-  const match = content.trim().match(regex);
+  const match = text.match(regex);
 
   if (!match || parseFloat(match[1]) <= 0) return null;
 
   const amount = parseFloat(match[1]);
-  let rawCurrency = match[2] ? match[2].toLowerCase() : '';
-  let rest = match[3] || '';
-  
-  let currency = process.env.DEFAULT_CURRENCY || 'USD';
-  let description = '';
+  let rawCurrency = normalizeCurrency(match[2]);
+  let description = match[3] || '';
 
-  // 2. 判斷抓到的第二個區塊是不是幣別
-  if (rawCurrency && currencyMap[rawCurrency]) {
-    currency = currencyMap[rawCurrency];
-    description = rest;
-  } else {
-    // 如果不是幣別，就把抓到的東西還給 description
-    description = (rawCurrency + ' ' + rest).trim();
-  }
+  let currency = rawCurrency || process.env.DEFAULT_CURRENCY || 'USD';
 
-  // 3. 提取 #分類
+  // category
   let category = null;
   const categoryMatch = description.match(/#(\S+)/);
   if (categoryMatch) {
