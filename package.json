@@ -29,7 +29,8 @@
     "googleapis": "^126.0.1",
     "chartjs-node-canvas": "^4.1.6",
     "chart.js": "^3.9.1",
-    "winston": "^3.10.0"
+    "winston": "^3.10.0",
+    "yahoo-finance2": "^2.13.2"
   },
   "devDependencies": {
     "eslint": "^8.50.0",
