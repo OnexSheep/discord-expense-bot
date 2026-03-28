@@ -7,9 +7,8 @@ const logger = require('../utils/logger');
 // Initialize auth
 const getJwtClient = () => {
   try {
-    const credentials = JSON.parse(
-      fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8')
-    );
+    // ✅ 直接解析環境變數中的 JSON 字串，不要用 fs.readFileSync
+    const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS);
     
     return new JWT({
       email: credentials.client_email,
