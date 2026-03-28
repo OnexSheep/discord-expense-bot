@@ -9,8 +9,17 @@ const PREFIX = process.env.PREFIX || '!';
  * @param {Object} message - Discord message object
  */
 async function handleMessage(message) {
-  // Check if message is in DM or has the expense prefix
-  const isDM = message.channel.type === 'DM';
+  // ✅ 防 bot loop
+  if (message.author.bot) return;
+
+  // ✅ 防重複
+  if (!global.processedMessages) {
+    global.processedMessages = new Set();
+  }
+  if (global.processedMessages.has(message.id)) return;
+  global.processedMessages.add(message.id);
+
+  const isDM = message.channel.type === 1; // 或用 ChannelType.DM
   const isCommand = message.content.startsWith(PREFIX);
   
   // Process as an expense if it's a DM or starts with the expense command
