@@ -202,27 +202,28 @@ async function createNewSheet(sheetName, makePublic = true) {
     const sheets = google.sheets({ version: 'v4', auth: jwtClient });
     const drive = google.drive({ version: 'v3', auth: jwtClient });
     
-    const response = await sheets.spreadsheets.create({
-      resource: {
-        properties: { title: sheetName },
-        sheets: [
-          { properties: { title: 'Expenses', gridProperties: { frozenRowCount: 1 } } },
-          { properties: { title: 'Summary', gridProperties: { frozenRowCount: 1 } } }
-        ]
-      }
-    });
-    
+const response = await sheets.spreadsheets.create({
+  resource: {
+    properties: { title: sheetName },
+    sheets: [
+      // 💡 建立時直接定義好，不要事後再 addSheet
+      { properties: { title: 'Expenses', gridProperties: { frozenRowCount: 1 } } },
+      { properties: { title: 'Summary', gridProperties: { frozenRowCount: 1 } } }
+    ]
+  }
+});
+
     const spreadsheetId = response.data.spreadsheetId;
     const expensesSheetId = response.data.sheets[0].properties.sheetId;
     
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: 'Expenses!A1:H1',
-      valueInputOption: 'USER_ENTERED',
-      resource: {
-        values: [['Timestamp', 'User ID', 'Username', 'Amount', 'Currency', 'Description', 'Category', 'Date']]
-      }
-    });
+await sheets.spreadsheets.values.update({
+  spreadsheetId,
+  range: 'Expenses!A1:I1', // 範圍擴大到 I，因為多了 Amount (TWD)
+  valueInputOption: 'USER_ENTERED',
+  resource: {
+    values: [['Timestamp', 'User ID', 'Username', 'Amount', 'Currency', 'Amount (TWD)', 'Description', 'Category', 'Date']]
+  }
+});
 
     // ... 後續格式設定與權限保持不變 ...
     return { spreadsheetId, spreadsheetUrl: response.data.spreadsheetUrl, isPublic: makePublic };
