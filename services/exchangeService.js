@@ -10,28 +10,33 @@ async function getExchangeRate(fromCurrency, toCurrency = 'TWD') {
     return rateCache[pair].rate;
   }
 
-try {
-    // 💡 修正後的動態 import 邏輯
+  try {
     if (!yahooFinance) {
       const module = await import('yahoo-finance2');
-      // yahoo-finance2 的 ESM 導出通常在 .default 中
-      yahooFinance = module.default; 
+      // 💡 修正：相容於不同的環境載入方式
+      yahooFinance = module.default || module;
     }
 
-    // 呼叫時確保 yahooFinance 存在且有 quote 函式
-    if (yahooFinance && typeof yahooFinance.quote === 'function') {
-      const result = await yahooFinance.quote(pair);
-      const rate = result.regularMarketPrice;
-      rateCache[pair] = { rate, time: Date.now() };
-      return rate;
+    // 💡 修正：有些版本 quote 放在 yahooFinance.default 裡面
+    const api = yahooFinance.quote ? yahooFinance : yahooFinance.default;
+
+    if (api && typeof api.quote === 'function') {
+      const result = await api.quote(pair);
+      
+      // 💡 增加安全性檢查：確保回傳值存在且為數字
+      const rate = result?.regularMarketPrice;
+      
+      if (typeof rate === 'number') {
+        rateCache[pair] = { rate, time: Date.now() };
+        return rate;
+      }
+      throw new Error(`Invalid rate received for ${pair}: ${rate}`);
     } else {
-      throw new Error('yahooFinance.quote is not a function');
+      throw new Error('yahooFinance.quote is not a function after import');
     }
   } catch (error) {
-    logger.error(`Yahoo Finance Error for ${pair}:`, error);
-    // 為了 6 月大阪行，這裡建議回傳一個保底日幣匯率，避免記帳失敗
+    // 這裡保留你的保底邏輯，這對於日本旅遊時非常重要
+    logger.error(`Yahoo Finance Error for ${pair}:`, error.message);
     return fromCurrency.toUpperCase() === 'JPY' ? 0.21 : 1;
   }
 }
-
-module.exports = { getExchangeRate };
