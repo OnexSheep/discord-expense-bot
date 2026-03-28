@@ -6,35 +6,40 @@ const logger = require('../utils/logger');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('summary')
-    .setDescription('Get a summary of your expenses')
+    .setDescription('獲取支出總結')
     .addStringOption(option =>
       option.setName('period')
-        .setDescription('Time period for the summary')
+        .setDescription('時間範圍')
         .setRequired(false)
         .addChoices(
-          { name: 'Today', value: 'today' },
-          { name: 'This Week', value: 'week' },
-          { name: 'This Month', value: 'month' },
-          { name: 'This Year', value: 'year' },
-          { name: 'All Time', value: 'all' }
+          { name: '今天', value: 'today' },
+          { name: '本週', value: 'week' },
+          { name: '本月', value: 'month' },
+          { name: '今年', value: 'year' },
+          { name: '全部', value: 'all' }
         ))
     .addStringOption(option =>
       option.setName('category')
-        .setDescription('Filter by expense category')
+        .setDescription('過濾類別')
         .setRequired(false)),
 
   async execute(interaction) {
+    // 定義輔助函式 (放在 execute 內部最安全)
+    const getPeriodText = (p) => {
+      const map = { today: '今天', week: '本週', month: '本月', year: '今年', all: '全部紀錄' };
+      return map[p] || '本月';
+    };
+
     await interaction.deferReply({ ephemeral: true });
 
     try {
       const userId = interaction.user.id;
       const period = interaction.options.getString('period') || 'month';
       const category = interaction.options.getString('category');
-
-      const options = { category };
       const now = new Date();
+      const options = { category };
 
-      // 時間過濾邏輯
+      // 設定時間範圍
       if (period === 'today') {
         options.startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       } else if (period === 'week') {
@@ -50,11 +55,11 @@ module.exports = {
 
       const { expenses } = await getExpenseSummary(userId, options);
 
-      if (expenses.length === 0) {
-        return interaction.editReply('No expenses found for the selected period.');
+      if (!expenses || expenses.length === 0) {
+        return interaction.editReply('該時段沒有任何支出紀錄。');
       }
 
-      // 匯率換算與分類統計
+      // 並行處理匯率換算與分類統計
       let totalTWD = 0;
       const categoriesTWD = {};
 
@@ -62,47 +67,33 @@ module.exports = {
         const rate = await getExchangeRate(expense.currency, 'TWD');
         const amountTWD = expense.amount * rate;
         totalTWD += amountTWD;
-
-        const cat = expense.category || 'Uncategorized';
+        const cat = expense.category || '未分類';
         categoriesTWD[cat] = (categoriesTWD[cat] || 0) + amountTWD;
       }));
 
-      // 建立 Embed 顯示
-      const summaryEmbed = new EmbedBuilder()
-        .setTitle('📊 支出總結 (已換算台幣)')
-        .setColor('#0099ff')
-        .setDescription(`Summary for: **${getPeriodText(period)}**${category ? ` in category #${category}` : ''}`)
-        .addFields(
-          { name: '預估總支出', value: `NT$ ${Math.round(totalTWD).toLocaleString()}`, inline: false },
-          { name: '明細數量', value: `${expenses.length} 筆`, inline: true },
-          { name: '平均每筆', value: `NT$ ${Math.round(totalTWD / expenses.length).toLocaleString()}`, inline: true }
-        );
-
+      // 產生明細字串
       const categoryBreakdown = Object.entries(categoriesTWD)
         .sort((a, b) => b[1] - a[1])
         .map(([name, amount]) => `**${name}**: NT$ ${Math.round(amount).toLocaleString()}`)
         .join('\n');
 
-      summaryEmbed.addFields({ name: '分類統計 (台幣)', value: categoryBreakdown || '無數據', inline: false });
-      summaryEmbed.setFooter({ text: `匯率參考自 Yahoo Finance • 生成日期 ${now.toLocaleDateString()}` });
+      const summaryEmbed = new EmbedBuilder()
+        .setTitle('📊 旅費支出總結')
+        .setColor('#0099ff')
+        .setDescription(`統計範圍：**${getPeriodText(period)}**${category ? ` (類別: #${category})` : ''}`)
+        .addFields(
+          { name: '總預算花費', value: `**NT$ ${Math.round(totalTWD).toLocaleString()}**`, inline: false },
+          { name: '紀錄筆數', value: `${expenses.length} 筆`, inline: true },
+          { name: '每筆平均', value: `NT$ ${Math.round(totalTWD / expenses.length).toLocaleString()}`, inline: true },
+          { name: '分類明細 (台幣)', value: categoryBreakdown || '無數據', inline: false }
+        )
+        .setFooter({ text: `匯率參考自 Yahoo Finance • ${now.toLocaleDateString()}` });
 
       await interaction.editReply({ embeds: [summaryEmbed] });
 
     } catch (error) {
       logger.error('Error generating summary:', error);
-      await interaction.editReply('產生總結時出錯，請檢查後端日誌。');
+      await interaction.editReply('計算總結時出錯，請確認試算表格式是否正確。');
     }
-  } // <-- execute 結束
-}; // <-- module.exports 結束
-
-// Helper function 放在外面
-function getPeriodText(period) {
-  switch (period) {
-    case 'today': return 'Today';
-    case 'week': return 'This Week';
-    case 'month': return 'This Month';
-    case 'year': return 'This Year';
-    case 'all': return 'All Time';
-    default: return 'This Month';
   }
-}
+};
