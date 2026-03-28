@@ -21,7 +21,7 @@ async function getExchangeRate(fromCurrency, toCurrency = 'TWD') {
     return rate;
   } catch (error) {
     logger.error(`Yahoo Finance Error for ${pair}:`, error);
-    return 1; // 失敗時回傳 1，至少不會讓程式崩潰
+    return fromCurrency.toUpperCase() === 'JPY' ? 0.21 : 1;
   }
 }
 
