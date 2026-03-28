@@ -4,6 +4,19 @@ const { handleMessage } = require('./handlers/messageHandler');
 const { setupCommands } = require('./handlers/commandHandler');
 const logger = require('./utils/logger');
 
+//For Website server respon (Free google plan)
+const http = require('http');
+
+// 讓 Render 偵測到 Port 有在運作，防止服務被自動砍掉
+http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.write('Expense Bot is active!');
+  res.end();
+}).listen(process.env.PORT || 3000, () => {
+  console.log('Keep-alive server is running');
+});
+
+
 // Initialize Discord client
 const client = new Client({
   intents: [
