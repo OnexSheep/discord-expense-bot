@@ -13,8 +13,8 @@ async function getExchangeRate(fromCurrency, toCurrency = 'TWD') {
   try {
     // 💡 關鍵：如果尚未載入，則使用動態 import()
     if (!yahooFinance) {
-      const module = await import('yahoo-finance2');
-      yahooFinance = module.default;
+    const module = await import('yahoo-finance2');
+    yahooFinance = module.default || module;
     }
 
     const result = await yahooFinance.quote(pair);
