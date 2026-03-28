@@ -50,16 +50,16 @@ async function addExpenseToSheet(expense) {
     const date = new Date(expense.timestamp);
     const formattedDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
     
-    await sheet.addRow({
-      'Timestamp': expense.timestamp,
-      'User ID': expense.userId,
-      'Username': expense.username,
-      'Amount': expense.amount,
-      'Currency': expense.currency,
-      'Description': expense.description,
-      'Category': expense.category || 'Uncategorized',
-      'Date': formattedDate
-    });
+  await sheet.addRow({
+    Timestamp: new Date().toISOString(),
+    Username: expense.username,
+    Amount: expense.amount,
+    Currency: expense.currency,
+    'Amount (TWD)': expense.amount * exchangeRate, // 這裡用我們抓到的匯率
+    Description: expense.description,
+    Category: expense.category,
+    Date: new Date().toLocaleDateString()
+  });
     
     logger.info(`Added expense: ${expense.amount} ${expense.currency}`);
     return true;
