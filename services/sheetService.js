@@ -68,11 +68,12 @@ async function addExpenseToSheet(expense) {
     
     await doc.loadInfo();
     
-    let sheet = doc.sheetsByTitle['Expenses'];
+let sheet = doc.sheetsByTitle['Expenses'];
     if (!sheet) {
       sheet = await doc.addSheet({
         title: 'Expenses',
-        headerValues: ['Timestamp', 'User ID', 'Username', 'Amount', 'Currency', 'Description', 'Category', 'Date']
+        // 💡 這裡要同步新增 'Amount (TWD)'
+        headerValues: ['Timestamp', 'User ID', 'Username', 'Amount', 'Currency', 'Amount (TWD)', 'Description', 'Category', 'Date']
       });
       await sheet.updateProperties({ gridProperties: { frozenRowCount: 1 } });
     }
