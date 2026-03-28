@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getExpenseSummary } = require('../services/sheetService');
 const logger = require('../utils/logger');
+const { getExchangeRate } = require('../services/exchangeService');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -22,7 +23,7 @@ module.exports = {
         .setDescription('Filter by expense category')
         .setRequired(false)),
         
-  async execute(interaction) {
+async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
     
     try {
@@ -30,72 +31,69 @@ module.exports = {
       const period = interaction.options.getString('period') || 'month';
       const category = interaction.options.getString('category');
       
-      // Set up date filters based on period
       const options = { category };
       const now = new Date();
       
+      // --- 時間過濾邏輯 (保持不變) ---
       if (period === 'today') {
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        options.startDate = today;
+        options.startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       } else if (period === 'week') {
-        const dayOfWeek = now.getDay();
         const startOfWeek = new Date(now);
-        startOfWeek.setDate(now.getDate() - dayOfWeek);
+        startOfWeek.setDate(now.getDate() - now.getDay());
         startOfWeek.setHours(0, 0, 0, 0);
         options.startDate = startOfWeek;
       } else if (period === 'month') {
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        options.startDate = startOfMonth;
+        options.startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       } else if (period === 'year') {
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
-        options.startDate = startOfYear;
+        options.startDate = new Date(now.getFullYear(), 0, 1);
       }
       
-      // Get the expense data
-      const { expenses, total } = await getExpenseSummary(userId, options);
+      const { expenses } = await getExpenseSummary(userId, options);
       
       if (expenses.length === 0) {
         return interaction.editReply('No expenses found for the selected period.');
       }
       
-      // Group expenses by category
-      const categories = {};
-      expenses.forEach(expense => {
+      // --- 核心匯率換算與分類統計 ---
+      let totalTWD = 0;
+      const categoriesTWD = {}; // 用台幣統計各分類
+
+      await Promise.all(expenses.map(async (expense) => {
+        const rate = await getExchangeRate(expense.currency, 'TWD');
+        const amountTWD = expense.amount * rate;
+        totalTWD += amountTWD;
+
         const cat = expense.category || 'Uncategorized';
-        if (!categories[cat]) {
-          categories[cat] = 0;
-        }
-        categories[cat] += expense.amount;
-      });
-      
-      // Create embed for the summary
-      const embed = new EmbedBuilder()
-        .setTitle('Expense Summary')
+        categoriesTWD[cat] = (categoriesTWD[cat] || 0) + amountTWD;
+      }));
+
+      // --- 建立單一 Embed (修正重複宣告問題) ---
+      const summaryEmbed = new EmbedBuilder()
+        .setTitle('📊 支出總結 (已換算台幣)')
         .setColor('#0099ff')
-        .setDescription(`Summary for: ${getPeriodText(period)}${category ? ` in category #${category}` : ''}`)
+        .setDescription(`Summary for: **${getPeriodText(period)}**${category ? ` in category #${category}` : ''}`)
         .addFields(
-          { name: 'Total Expenses', value: `${total.toFixed(2)} ${expenses[0].currency}`, inline: false },
-          { name: 'Number of Expenses', value: `${expenses.length}`, inline: true },
-          { name: 'Average per Expense', value: `${(total / expenses.length).toFixed(2)} ${expenses[0].currency}`, inline: true }
-        )
-        .setFooter({ text: `Generated on ${now.toLocaleDateString()}` });
-      
-      // Add category breakdown
-      const categoryBreakdown = Object.entries(categories)
-        .map(([name, amount]) => `**${name}**: ${amount.toFixed(2)} ${expenses[0].currency}`)
+          { name: '預估總支出', value: `NT$ ${Math.round(totalTWD).toLocaleString()}`, inline: false },
+          { name: '明細數量', value: `${expenses.length} 筆`, inline: true },
+          { name: '平均每筆', value: `NT$ ${Math.round(totalTWD / expenses.length).toLocaleString()}`, inline: true }
+        );
+
+      // 產生分類明細字串
+      const categoryBreakdown = Object.entries(categoriesTWD)
+        .sort((a, b) => b[1] - a[1]) // 由大到小排序
+        .map(([name, amount]) => `**${name}**: NT$ ${Math.round(amount).toLocaleString()}`)
         .join('\n');
       
-      embed.addFields({ name: 'Category Breakdown', value: categoryBreakdown, inline: false });
+      summaryEmbed.addFields({ name: '分類統計 (台幣)', value: categoryBreakdown || '無數據', inline: false });
+      summaryEmbed.setFooter({ text: `匯率參考自 Yahoo Finance • 生成日期 ${now.toLocaleDateString()}` });
       
-      await interaction.editReply({ embeds: [embed] });
+      await interaction.editReply({ embeds: [summaryEmbed] });
       
     } catch (error) {
       logger.error('Error generating summary:', error);
-      await interaction.editReply('There was an error generating your expense summary. Please try again later.');
+      await interaction.editReply('產生總結時出錯，請確認 Yahoo Finance API 是否正常。');
     }
   }
-};
-
 /**
  * Get a human-readable description of the time period
  * @param {string} period - The period identifier
