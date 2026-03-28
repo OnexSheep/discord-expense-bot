@@ -3,6 +3,7 @@ const { JWT } = require('google-auth-library');
 const { google } = require('googleapis');
 const fs = require('fs');
 const logger = require('../utils/logger');
+const { getExchangeRate } = require('../services/exchangeService');
 
 // 統一取得憑證的邏輯
 const getCredentials = () => {
