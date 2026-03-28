@@ -103,10 +103,12 @@ let sheet = doc.sheetsByTitle['Expenses'];
     
     logger.info(`Added expense: ${expense.amount} ${expense.currency}`);
     return true;
-  } catch (error) {
-    logger.error('Error adding expense:', error);
-    throw error;
-  }
+} catch (error) {
+  // 💡 把完整的 error 物件印出來，這樣我們就能在 Render Logs 看到具體是哪個欄位找不到
+  logger.error('Full Error Object:', error); 
+  logger.error('Error adding expense:', error.message);
+  throw error;
+}
 }
 /**
  * Get summary data from the sheet
