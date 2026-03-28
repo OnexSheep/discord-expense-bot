@@ -94,6 +94,7 @@ async execute(interaction) {
       await interaction.editReply('產生總結時出錯，請確認 Yahoo Finance API 是否正常。');
     }
   }
+};
 /**
  * Get a human-readable description of the time period
  * @param {string} period - The period identifier
