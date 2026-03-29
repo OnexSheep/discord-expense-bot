@@ -24,7 +24,7 @@ module.exports = {
         .setRequired(false)),
 
   async execute(interaction) {
-    // 定義輔助函式 (放在 execute 內部最安全)
+    // 定義輔助函式
     const getPeriodText = (p) => {
       const map = { today: '今天', week: '本週', month: '本月', year: '今年', all: '全部紀錄' };
       return map[p] || '本月';
@@ -95,5 +95,5 @@ module.exports = {
       logger.error('Error generating summary:', error);
       await interaction.editReply('計算總結時出錯，請確認試算表格式是否正確。');
     }
-  }
-};
+  } // 這裡關閉 execute 函式
+}; // 這裡關閉 module.exports 物件
