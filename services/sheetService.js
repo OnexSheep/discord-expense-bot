@@ -62,6 +62,8 @@ if (rows.length === 0) {
 
 if (lastDate && lastDate !== currentDate) {
   await sheet.addRow({ Timestamp: ' ' }); // 🔑 給定至少一個存在的 Key 與空格/空字串
+  await sheet.addRow({ Timestamp: ' ' }); // 🔑 給定至少一個存在的 Key 與空格/空字串
+  await sheet.addRow({ Timestamp: ' ' }); // 🔑 給定至少一個存在的 Key 與空格/空字串
   await sheet.addRow(headerFormat);       // 新的一天橫幅
 }
 }
