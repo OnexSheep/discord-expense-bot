@@ -4,43 +4,53 @@ const logger = require('../utils/logger');
 
 const PREFIX = process.env.PREFIX || '!';
 
-/**
- * Handle incoming messages and process expense commands
- * @param {Object} message - Discord message object
- */
+// 💡 幣別對照表
+const currencyMap = {
+  '日幣': 'JPY', '日圓': 'JPY', '日元': 'JPY',
+  '美金': 'USD', '美元': 'USD',
+  '台幣': 'TWD', '台元': 'TWD',
+  '港幣': 'HKD', '歐元': 'EUR'
+};
+
 async function handleMessage(message) {
-  // ✅ 防 bot loop
   if (message.author.bot) return;
 
-  // ✅ 防重複
-  if (!global.processedMessages) {
-    global.processedMessages = new Set();
-  }
+  // 防重複處理
+  if (!global.processedMessages) global.processedMessages = new Set();
   if (global.processedMessages.has(message.id)) return;
   global.processedMessages.add(message.id);
 
-  const isDM = message.channel.type === 1; // 或用 ChannelType.DM
-  const isCommand = message.content.startsWith(PREFIX);
+  const isDM = message.channel.type === 1;
+  const isCommand = message.content.startsWith(`${PREFIX}expense`);
   
-  // Process as an expense if it's a DM or starts with the expense command
-  if (isDM || (isCommand && message.content.startsWith(`${PREFIX}expense`))) {
-    const content = isCommand ? message.content.slice(PREFIX.length + 8).trim() : message.content;
+  if (isDM || isCommand) {
+    let content = message.content;
+    if (isCommand) {
+      content = message.content.slice(`${PREFIX}expense`.length).trim();
+    }
     
-    // Skip empty messages
     if (!content) return;
     
     try {
-      // Parse the expense message
+      // 1. 初步解析
       const expense = parseExpense(content);
       
       if (!expense) {
-        return message.reply(
-          `I couldn't understand your expense. Please use a format like:\n` +
-          `"20 lunch" or "12.50 uber #transportation"`
-        );
+        return message.reply(`格式錯誤！請試試：\`1000 日幣 拉麵\` 或 \`500 午餐\``);
       }
-      
-      // Add the expense to the sheet
+
+      // 💡 2. 關鍵修正：檢查 description 裡是否藏著中文幣別
+      // 因為目前的 parser 可能把 "日幣" 當成描述的一部分
+      for (const [key, val] of Object.entries(currencyMap)) {
+        if (content.includes(key)) {
+          expense.currency = val;
+          // 選項：把描述中的 "日幣" 刪除，讓 Excel 更乾淨
+          expense.description = expense.description.replace(key, '').trim();
+          break; 
+        }
+      }
+
+      // 3. 寫入試算表
       await addExpenseToSheet({
         ...expense,
         userId: message.author.id,
@@ -48,16 +58,13 @@ async function handleMessage(message) {
         timestamp: new Date().toISOString()
       });
       
-      // Send confirmation
       await message.reply(
-        `✅ Recorded expense: ${expense.amount} ${expense.currency} for "${expense.description}"` +
-        (expense.category ? ` in category #${expense.category}` : '')
+        `✅ 已記錄：${expense.amount} ${expense.currency}（${expense.description}）`
       );
       
-      logger.info(`Expense recorded for ${message.author.username}: ${expense.amount} for ${expense.description}`);
     } catch (error) {
       logger.error('Error processing expense:', error);
-      await message.reply('Sorry, there was an error recording your expense. Please try again.');
+      await message.reply('抱歉，記錄失敗，請稍後再試。');
     }
   }
 }
