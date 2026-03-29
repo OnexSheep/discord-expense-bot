@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, Events, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, Events, EmbedBuilder, MessageFlags } = require('discord.js');
 const { handleMessage } = require('./handlers/messageHandler');
 const { setupCommands } = require('./handlers/commandHandler');
 const logger = require('./utils/logger');
@@ -85,7 +85,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (!process.env.GOOGLE_SHEETS_ID && interaction.commandName !== 'setup' && interaction.commandName !== 'help') {
       return interaction.reply({
         content: 'Please set up your expense tracker first using the `/setup` command.',
-        ephemeral: true
+        flags: [MessageFlags.Ephemeral]
       });
     }
 
@@ -94,7 +94,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     logger.error('Error handling command:', error);
     await interaction.reply({
       content: 'There was an error executing this command!',
-      ephemeral: true
+      flags: [MessageFlags.Ephemeral]
     });
   }
 });
