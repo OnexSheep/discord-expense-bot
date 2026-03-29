@@ -69,15 +69,16 @@ async function handleMessage(message) {
         }
       }
 
-// 💡 修正：抓取 Discord 的顯示名稱 (DisplayName)
+// 💡 1. 抓取正確的顯示名稱 (displayName)
       const member = message.member || (message.guild ? await message.guild.members.fetch(message.author.id).catch(() => null) : null);
-      const displayName = member ? member.displayName : (message.author.globalName || message.author.username);
+      const currentDisplayName = member ? member.displayName : (message.author.globalName || message.author.username);
 
+      // 💡 2. 傳送到試算表服務
       await addExpenseToSheet({
         ...expense,
         userId: message.author.id,
-        username: message.author.username, // 帳號名備份
-        displayName: displayName,          // 💡 這就是你要的 "Sheep"
+        username: currentDisplayName, // 這裡直接把 username 設為顯示名稱
+        displayName: currentDisplayName, // 同步確保這個欄位也有值
         timestamp: new Date().toISOString()
       });
       
