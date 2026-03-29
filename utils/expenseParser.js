@@ -10,12 +10,8 @@ function parseExpense(message) {
   const text = message.trim();
   
   // Basic expense regex: amount + description + optional category
-  // Supports formats like: 
-  // - "20 lunch"
-  // - "20 USD lunch"
-  // - "20 lunch #food"
-  // - "20 USD lunch #food"
-  const expenseRegex = /^(\d+\.?\d*)\s+(?:([A-Z]{3})\s+)?(.+?)(?:\s+#(\w+))?$/i;
+  // 💡 修正：將 (\w+) 改為 (\S+)，以支援中文等非英文字元作為分類
+  const expenseRegex = /^(\d+\.?\d*)\s+(?:([A-Z]{3})\s+)?(.+?)(?:\s+#(\S+))?$/i;
   
   const match = text.match(expenseRegex);
   
