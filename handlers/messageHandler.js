@@ -21,8 +21,25 @@ async function handleMessage(message) {
   if (!global.processedMessages) global.processedMessages = new Set();
   if (global.processedMessages.has(message.id)) return;
   global.processedMessages.add(message.id);
-  // 定期清理避免內存洩漏 (可選)
+  
+  // 定期清理避免內存洩漏
   if (global.processedMessages.size > 100) global.processedMessages.clear();
+
+  // 🛡️ 權限驗證：只允許特定伺服器的成員使用（包含私訊）
+  if (process.env.GUILD_ID) {
+    try {
+      const guild = await message.client.guilds.fetch(process.env.GUILD_ID);
+      const member = await guild.members.fetch(message.author.id).catch(() => null);
+
+      if (!member) {
+        // 如果對方不在伺服器內，直接安靜無視，保護試算表
+        return; 
+      }
+    } catch (err) {
+      logger.error('驗證成員身分失敗:', err);
+      return; // 驗證過程出錯也先擋住，安全第一
+    }
+  }
 
   const isDM = message.channel.type === ChannelType.DM;
   const commandPrefix = `${PREFIX}expense`;
