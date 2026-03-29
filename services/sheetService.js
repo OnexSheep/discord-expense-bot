@@ -1,4 +1,5 @@
 const { Client, GatewayIntentBits, Partials, Collection } = require('discord.js');
+const SHEET_NAME = process.env.GOOGLE_SHEET_PAGE_NAME || 'Expenses';
 const { GoogleSpreadsheet } = require('google-spreadsheet');
 const { JWT } = require('google-auth-library');
 const { google } = require('googleapis');
@@ -94,7 +95,7 @@ async function createNewSheet(sheetName, makePublic = true) {
     
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: 'Expenses!A1:I1',
+      range: `${SHEET_NAME}!A1:I1`, // 修改處
       valueInputOption: 'USER_ENTERED',
       resource: {
         values: [['Timestamp', 'User ID', 'Username', 'Amount', 'Currency', 'Amount (TWD)', 'Description', 'Category', 'Date']]
@@ -114,14 +115,14 @@ async function addExpenseToSheet(expense) {
     const jwtClient = getJwtClient();
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEETS_ID, jwtClient);
     await doc.loadInfo();
-    let sheet = doc.sheetsByTitle['Expenses'];
+  let sheet = doc.sheetsByTitle[SHEET_NAME]; 
 
-    if (!sheet) {
-      sheet = await doc.addSheet({
-        title: 'Expenses',
-        headerValues: ['Timestamp', 'User ID', 'Username', 'Amount', 'Currency', 'Amount (TWD)', 'Description', 'Category', 'Date']
-      });
-    }
+  if (!sheet) {
+    sheet = await doc.addSheet({
+      title: SHEET_NAME, 
+      headerValues: ['Timestamp', 'User ID', 'Username', 'Amount', 'Currency', 'Amount (TWD)', 'Description', 'Category', 'Date']
+    });
+  }
     
     const rate = await getExchangeRate(expense.currency, 'TWD');
     
@@ -163,7 +164,7 @@ async function getExpenseSummary(userId, options = {}) {
     const jwtClient = getJwtClient();
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEETS_ID, jwtClient);
     await doc.loadInfo();
-    const sheet = doc.sheetsByTitle['Expenses'];
+    const sheet = doc.sheetsByTitle[SHEET_NAME];
     
     if (!sheet) return { expenses: [], total: 0 };
     
