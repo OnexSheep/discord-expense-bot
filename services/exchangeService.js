@@ -37,6 +37,7 @@ async function getExchangeRate(fromCurrency, toCurrency = 'TWD') {
     // 💡 即使 API 報錯，只要是 JPY 就回傳保底 0.21
     // 這對你 6 月去日本大阪非常重要，確保即便沒網路或 API 掛掉也能記帳
     logger.error(`Yahoo Finance Error for ${pair}: ${error.message}`);
+    module.exports = { getExchangeRate };
     return fromCurrency.toUpperCase() === 'JPY' ? 0.21 : 1;
   }
 }
