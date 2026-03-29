@@ -1,10 +1,11 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, Events, EmbedBuilder, MessageFlags } = require('discord.js');
+// 💡 頂部加上了 Partials 和 ChannelType
+const { Client, GatewayIntentBits, Events, EmbedBuilder, MessageFlags, Partials, ChannelType } = require('discord.js');
 const { handleMessage } = require('./handlers/messageHandler');
 const { setupCommands } = require('./handlers/commandHandler');
 const logger = require('./utils/logger');
 
-//For Website server respon (Free google plan)
+// For Website server response (Free plan keep-alive)
 const http = require('http');
 
 // 讓 Render 偵測到 Port 有在運作，防止服務被自動砍掉
@@ -24,9 +25,9 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages,
-    GatewayIntentBits.GuildMembers, // 💡 必須要有這個，才能抓取成員資訊
+    GatewayIntentBits.GuildMembers, // 💡 權限1：允許 Bot 抓取伺服器成員身分
   ],
-  partials: [Partials.Channel],
+  partials: [Partials.Channel], // 💡 權限2：允許 Bot 接收未進入快取的私訊 (解鎖 ReferenceError)
 });
 
 // Setup event handlers
@@ -47,8 +48,8 @@ client.on(Events.MessageCreate, async (message) => {
   try {
     // Check if Google Sheets is configured
     if (!process.env.GOOGLE_SHEETS_ID) {
-      // Only respond to direct messages or mentions
-      const isDM = message.channel.type === 'DM';
+      // 💡 修正原本字串 'DM' 的寫法，改用數字或 ChannelType
+      const isDM = message.channel.type === ChannelType.DM || message.channel.type === 1;
       const isMention = message.mentions.has(client.user);
       
       if (isDM || isMention) {
