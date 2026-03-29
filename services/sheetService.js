@@ -190,11 +190,12 @@ async function getExpenseSummary(userId, options = {}) {
     const rows = await sheet.getRows();
     
     // 💡 關鍵過濾：排除分隔線並使用強型別比對 ID
-    let filteredRows = rows.filter(row => {
-      const rowId = String(row.get('User ID'));
-      const isData = row.get('Timestamp') !== '---';
-      return isData && rowId === String(userId);
-    });
+let filteredRows = rows.filter(row => {
+  const isData = row.get('Timestamp') !== '---';
+  // 💡 將原本比對 User ID 的邏輯改為比對 Username
+  const rowUsername = String(row.get('Username')); 
+  return isData && rowUsername === String(options.username || expense.username); 
+});
     
     if (options.category) {
       filteredRows = filteredRows.filter(row => 
