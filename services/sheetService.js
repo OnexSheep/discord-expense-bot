@@ -32,16 +32,13 @@ const getJwtClient = (scopes = [
 };
 
 /**
- * 檢查日期並在需要時插入分隔列
+ * 檢查日期並在需要時插入分隔列 (包含第一天)
  */
 async function addDateDividerIfNeeded(sheet, currentDate) {
   const rows = await sheet.getRows();
-  if (rows.length === 0) return;
-
-  const lastRow = rows[rows.length - 1];
-  const lastDate = lastRow.get('Date');
-
-  if (lastDate && lastDate !== currentDate && !lastDate.includes('---')) {
+  
+  // 💡 邏輯 A：如果是完全空白的新表，直接插入第一天的分隔列
+  if (rows.length === 0) {
     await sheet.addRow({
       Timestamp: '---',
       'User ID': '---',
@@ -49,10 +46,33 @@ async function addDateDividerIfNeeded(sheet, currentDate) {
       Amount: '---',
       Currency: '---',
       'Amount (TWD)': '---',
-      Description: `📅 新的一天：${currentDate} ----------------`,
+      Description: `📅 記帳起始日：${currentDate} ----------------`,
       Category: '---',
       Date: currentDate
     });
+    return;
+  }
+
+  const lastRow = rows[rows.length - 1];
+  const lastDate = lastRow.get('Date');
+
+  // 💡 邏輯 B：如果最後一列日期跟今天不同，且最後一列不是分隔線本身，就插入新的一天
+  if (lastDate && lastDate !== currentDate) {
+    // 檢查最後一列的內容，避免重複插入分隔線
+    const lastDesc = lastRow.get('Description') || '';
+    if (!lastDesc.includes('📅')) {
+      await sheet.addRow({
+        Timestamp: '---',
+        'User ID': '---',
+        Username: '---',
+        Amount: '---',
+        Currency: '---',
+        'Amount (TWD)': '---',
+        Description: `📅 新的一天：${currentDate} ----------------`,
+        Category: '---',
+        Date: currentDate
+      });
+    }
   }
 }
 
