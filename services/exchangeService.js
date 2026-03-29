@@ -12,39 +12,33 @@ async function getExchangeRate(fromCurrency, toCurrency = 'TWD') {
 
   try {
     if (!yahooFinance) {
-      const module = await import('yahoo-finance2');
-      // 💡 針對 yahoo-finance2 v2.x 版本的精準抓取
-      yahooFinance = module.default || module;
+      yahooFinance = await import('yahoo-finance2');
     }
 
-    // 💡 確保抓到真正的 API 對象 (有些環境會包在 default 裡)
-    const api = (yahooFinance.default && typeof yahooFinance.default.quote === 'function') 
-                ? yahooFinance.default 
-                : yahooFinance;
+    // 💡 終極暴力尋找法：窮舉 ESM 模組可能封裝 quote 函式的所有路徑
+    const quoteFn = yahooFinance.quote || 
+                    yahooFinance.default?.quote || 
+                    yahooFinance.default?.default?.quote;
 
-    if (typeof api.quote === 'function') {
-      // 💡 2.13.2 版建議直接呼叫，不一定要用 .call
-      const result = await api.quote(pair);
-      
-      // Yahoo Finance 價格欄位優先級：現價 > 買價 > 賣價
+    if (typeof quoteFn === 'function') {
+      const result = await quoteFn(pair);
       const rate = result?.regularMarketPrice || result?.bid || result?.ask;
 
       if (typeof rate === 'number' && rate > 0) {
         rateCache[pair] = { rate, time: Date.now() };
         return rate;
       }
-      throw new Error(`Rate received is not a valid number: ${rate}`);
+      throw new Error(`抓取到的數值異常: ${rate}`);
     } else {
-      throw new Error('Could not locate quote function in yahoo-finance2');
+      // 印出物件結構幫助除錯
+      throw new Error(`找不到 quote 函式。目前模組結構: ${JSON.stringify(Object.keys(yahooFinance))}`);
     }
   } catch (error) {
-    // 💡 即使 API 報錯，只要是 JPY 就回傳保底 0.21
-    // 這對你 6 月去日本大阪非常重要，確保即便沒網路或 API 掛掉也能記帳
-    // logger.error(`Yahoo Finance Error for ${pair}: ${error.message}`); // 假設你有 logger
-    console.error(`Yahoo Finance Error for ${pair}: ${error.message}`);
+    logger.error(`Yahoo Finance Error for ${pair}: ${error.message}`);
+    // 斷網或 API 掛掉時，確保日幣依然能以 0.21 換算記帳
     return fromCurrency.toUpperCase() === 'JPY' ? 0.21 : 1;
   }
-} // <--- 函式的結尾大括號在這裡
+}
 
 // 💡 修正：把匯出放在函式「外面」的最底部！
 module.exports = { getExchangeRate };
