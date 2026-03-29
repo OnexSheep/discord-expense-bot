@@ -11,23 +11,22 @@ async function getExchangeRate(fromCurrency, toCurrency = 'TWD') {
   }
 
   try {
-if (!yahooFinance) {
-      const moduleNamespace = await import('yahoo-finance2');
+    if (!yahooFinance) {
+      const module = await import('yahoo-finance2');
+      // 🚀 最保險的抓取方式：嘗試所有可能的入口
+      yahooFinance = module.default?.default || module.default || module;
       
-      // 🚀 自動展開所有層級的 .default
-      let target = moduleNamespace;
-      while (target && target.default && !target.quote) {
-        target = target.default;
+      // 除錯用：如果還是失敗，印出完整的型態
+      if (typeof yahooFinance.quote !== 'function') {
+        logger.warn(`YahooFinance structure: ${typeof yahooFinance}, keys: ${Object.keys(yahooFinance)}`);
       }
-      yahooFinance = target;
     }
 
-    // 檢查抓到的對象
     if (yahooFinance && typeof yahooFinance.quote === 'function') {
-      // 💡 某些版本需要使用 .quote(pair)，某些則掛在 .default 下
-      // 這裡直接呼叫我們找到的函式
       const result = await yahooFinance.quote(pair);
-      const rate = result?.regularMarketPrice || result?.bid || result?.ask;
+      // 💡 修正：Yahoo Finance 有時會回傳陣列或物件，這裡做個相容處理
+      const quoteData = Array.isArray(result) ? result[0] : result;
+      const rate = quoteData?.regularMarketPrice || quoteData?.bid || quoteData?.ask;
 
       if (typeof rate === 'number' && rate > 0) {
         rateCache[pair] = { rate, time: Date.now() };
@@ -35,13 +34,14 @@ if (!yahooFinance) {
       }
     }
     
-    throw new Error(`找不到 quote 或數值無效。目前物件屬性: ${Object.keys(yahooFinance || {})}`);
+    throw new Error("無法從 API 取得有效匯率");
 
   } catch (error) {
     logger.error(`Yahoo Finance Error for ${pair}: ${error.message}`);
-    // 💡 6 月大阪保底：只要辨識出是 JPY，API 壞掉也給 0.21
-    return (fromCurrency.toUpperCase() === 'JPY') ? 0.21 : 1;
+    // 💡 6 月大阪保底機制
+    if (fromCurrency.toUpperCase() === 'JPY') return 0.21;
+    return 1;
   }
 }
 
-module.exports = { getExchangeRate };;
+module.exports = { getExchangeRate };
