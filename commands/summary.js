@@ -33,7 +33,7 @@ module.exports = {
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
     try {
-      const userId = interaction.user.id;
+      const userId = interaction.user.username;
       const period = interaction.options.getString('period') || 'month';
       const category = interaction.options.getString('category');
       const now = new Date();
