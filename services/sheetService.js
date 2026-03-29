@@ -191,17 +191,25 @@ let filteredRows = rows.filter(row => {
       );
     }
     
-  if (options.startDate) {
+if (options.startDate) {
+    // 強制將開始時間設為當天 00:00:00
     const start = new Date(options.startDate);
+    start.setHours(0, 0, 0, 0); 
+
     filteredRows = filteredRows.filter(row => {
-      // 將試算表的 Date (例: 2026/03/29) 取出並轉換成 Date 物件
       const rowDateString = row.get('Date');
       if (!rowDateString) return false;
     
-      const rowDate = new Date(rowDateString);
+      // 建議：手動解析 yyyy/mm/dd 避免時區誤判
+      const parts = rowDateString.split('/');
+      if (parts.length !== 3) return false;
+      
+      // 注意：Month 需減 1
+      const rowDate = new Date(parts[0], parts[1] - 1, parts[2]); 
+      
       return rowDate >= start;
     });
-  }
+}
     
     const expenses = filteredRows.map(row => ({
       timestamp: row.get('Timestamp'),
