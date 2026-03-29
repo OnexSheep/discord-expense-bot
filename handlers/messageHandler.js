@@ -42,7 +42,7 @@ async function handleMessage(message) {
   }
 
   const isDM = message.channel.type === ChannelType.DM;
-  const commandPrefix = `${PREFIX}expense`;
+  const commandPrefix = `${PREFIX}add`;
   const isCommand = message.content.startsWith(commandPrefix);
   
   if (isDM || isCommand) {
