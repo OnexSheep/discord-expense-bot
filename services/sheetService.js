@@ -67,17 +67,34 @@ async function addExpenseToSheet(expense) {
     const jwtClient = getJwtClient();
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEETS_ID, jwtClient);
     
-    await doc.loadInfo();
-    
+// 💡 修改這一段邏輯
+await doc.loadInfo();
+
+// 1. 先用標題找
 let sheet = doc.sheetsByTitle['Expenses'];
-    if (!sheet) {
-      sheet = await doc.addSheet({
-        title: 'Expenses',
-        // 💡 這裡要同步新增 'Amount (TWD)'
-        headerValues: ['Timestamp', 'User ID', 'Username', 'Amount', 'Currency', 'Amount (TWD)', 'Description', 'Category', 'Date']
-      });
-      await sheet.updateProperties({ gridProperties: { frozenRowCount: 1 } });
+
+// 2. 如果沒找到，再檢查是不是第一個分頁 (因為 createNewSheet 建立時它是第一個)
+if (!sheet && doc.sheetsByIndex[0].title === 'Expenses') {
+  sheet = doc.sheetsByIndex[0];
+}
+
+if (!sheet) {
+  try {
+    sheet = await doc.addSheet({
+      title: 'Expenses',
+      headerValues: ['Timestamp', 'User ID', 'Username', 'Amount', 'Currency', 'Amount (TWD)', 'Description', 'Category', 'Date']
+    });
+    await sheet.updateProperties({ gridProperties: { frozenRowCount: 1 } });
+  } catch (err) {
+    // 如果因為併發導致建立失敗，再次嘗試抓取現有的
+    if (err.message.includes('already exists')) {
+       await doc.loadInfo();
+       sheet = doc.sheetsByTitle['Expenses'];
+    } else {
+       throw err;
     }
+  }
+}
     
     const date = new Date(expense.timestamp);
 // 取得當前匯率與日期
