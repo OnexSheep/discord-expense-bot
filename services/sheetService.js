@@ -174,12 +174,15 @@ let filteredRows = rows.filter(row => {
       const timestampInRow = String(row.get('Timestamp'));
       const usernameInRow = String(row.get('Username'));
       
-      // 排除橫幅列 (橫幅列的 Timestamp 是圖標或文字，且沒有金額)
-      const isData = !timestampInRow.includes('📅') && row.get('Amount') !== undefined;
+      // 💡 排除包含時鐘圖案或日期文字的標題列，且確保金額欄位有數字
+      const isData = !timestampInRow.includes('🕒') && 
+                     !timestampInRow.includes('📅') && 
+                     row.get('Amount') !== undefined && 
+                     row.get('Amount') !== '';
       
-      // 比對名字
+      // 比對名字 (options.username 或 userId)
       return isData && usernameInRow === String(options.username || userId);
-    });
+    });;
     
     if (options.category) {
       filteredRows = filteredRows.filter(row => 
