@@ -1,3 +1,7 @@
+const logger = require('../utils/logger'); // 💡 確保路徑正確指向你的 logger
+const rateCache = {}; // 💡 必須在函式外宣告，匯率快取才能跨次使用
+let yahooFinance; // 💡 預留給動態 import 使用
+
 async function getExchangeRate(fromCurrency, toCurrency = 'TWD') {
   if (fromCurrency === toCurrency) return 1;
   const pair = `${fromCurrency}${toCurrency}=X`;
@@ -36,8 +40,11 @@ async function getExchangeRate(fromCurrency, toCurrency = 'TWD') {
   } catch (error) {
     // 💡 即使 API 報錯，只要是 JPY 就回傳保底 0.21
     // 這對你 6 月去日本大阪非常重要，確保即便沒網路或 API 掛掉也能記帳
-    logger.error(`Yahoo Finance Error for ${pair}: ${error.message}`);
-    module.exports = { getExchangeRate };
+    // logger.error(`Yahoo Finance Error for ${pair}: ${error.message}`); // 假設你有 logger
+    console.error(`Yahoo Finance Error for ${pair}: ${error.message}`);
     return fromCurrency.toUpperCase() === 'JPY' ? 0.21 : 1;
   }
-}
+} // <--- 函式的結尾大括號在這裡
+
+// 💡 修正：把匯出放在函式「外面」的最底部！
+module.exports = { getExchangeRate };
