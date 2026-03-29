@@ -69,16 +69,18 @@ async function handleMessage(message) {
         }
       }
 
-// 💡 1. 抓取正確的顯示名稱 (displayName)
+// 💡 1. 抓取漂亮的顯示名稱與原始帳號 ID
       const member = message.member || (message.guild ? await message.guild.members.fetch(message.author.id).catch(() => null) : null);
-      const currentDisplayName = member ? member.displayName : (message.author.globalName || message.author.username);
+      
+      const beautifulName = member ? member.displayName : (message.author.globalName || message.author.username); // Sheep 🐾
+      const rawUsername = message.author.username; // sheep.is
 
       // 💡 2. 傳送到試算表服務
       await addExpenseToSheet({
         ...expense,
         userId: message.author.id,
-        username: currentDisplayName, // 這裡直接把 username 設為顯示名稱
-        displayName: currentDisplayName, // 同步確保這個欄位也有值
+        username: rawUsername,     // 👈 對應 Username 欄位 (sheep.is)
+        displayName: beautifulName, // 👈 對應 User ID 欄位 (Sheep 🐾)
         timestamp: new Date().toISOString()
       });
       
