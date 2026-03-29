@@ -24,7 +24,9 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.GuildMembers, // 💡 必須要有這個，才能抓取成員資訊
   ],
+  partials: [Partials.Channel],
 });
 
 // Setup event handlers
