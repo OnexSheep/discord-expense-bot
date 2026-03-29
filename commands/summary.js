@@ -30,7 +30,7 @@ module.exports = {
       return map[p] || '本月';
     };
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
     try {
       const userId = interaction.user.id;
