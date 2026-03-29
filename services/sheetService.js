@@ -191,10 +191,17 @@ let filteredRows = rows.filter(row => {
       );
     }
     
-    if (options.startDate) {
-      const start = new Date(options.startDate);
-      filteredRows = filteredRows.filter(row => new Date(row.get('Timestamp')) >= start);
-    }
+  if (options.startDate) {
+    const start = new Date(options.startDate);
+    filteredRows = filteredRows.filter(row => {
+      // 將試算表的 Date (例: 2026/03/29) 取出並轉換成 Date 物件
+      const rowDateString = row.get('Date');
+      if (!rowDateString) return false;
+    
+      const rowDate = new Date(rowDateString);
+      return rowDate >= start;
+    });
+  }
     
     const expenses = filteredRows.map(row => ({
       timestamp: row.get('Timestamp'),
