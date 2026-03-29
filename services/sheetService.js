@@ -137,22 +137,36 @@ async function addExpenseToSheet(expense) {
     }
     
     const rate = await getExchangeRate(expense.currency, 'TWD');
-    const formattedDate = new Date().toLocaleDateString('en-US', { 
-      year: 'numeric', month: 'short', day: 'numeric' 
+    
+    // 💡 取得當前時間物件
+    const now = new Date();
+
+    // 💡 1. 日期格式：2026/03/29 (用於 Date 欄位與分隔線判斷)
+    const formattedDate = now.toLocaleDateString('zh-TW', { 
+      year: 'numeric', month: '2-digit', day: '2-digit' 
     });
 
+    // 💡 2. 純時間格式：13:54:20 (用於 Timestamp 欄位)
+    const formattedTime = now.toLocaleTimeString('zh-TW', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+
+    // 檢查並插入分隔橫幅
     await addDateDividerIfNeeded(sheet, formattedDate);
 
     await sheet.addRow({
-      Timestamp: new Date().toISOString(),
-      'User ID': String(expense.userId), // 💡 轉字串避免比對失敗
-      Username: expense.username,
+      Timestamp: formattedTime,           // 💡 只存時間，例如 14:05:30
+      'User ID': String(expense.userId),
+      Username: expense.username,         // 💡 存入 Discord 顯示名稱
       Amount: expense.amount,
       Currency: expense.currency.toUpperCase(),
       'Amount (TWD)': Math.round(expense.amount * rate),
       Description: expense.description,
       Category: expense.category || 'Uncategorized',
-      Date: formattedDate
+      Date: formattedDate                 // 💡 日期存在這裡
     });
     
     return true;
