@@ -37,7 +37,7 @@ const getJwtClient = (scopes = [
 async function addDateDividerIfNeeded(sheet, currentDate) {
   const rows = await sheet.getRows();
   const headerFormat = {
-    Timestamp: '📅 時間',
+    Timestamp: '🕒 時間',
     'User ID': '👤 使用者',
     Username: '🏷️ 名字',
     Amount: '💰 金額',
