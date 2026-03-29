@@ -46,7 +46,7 @@ client.on(Events.MessageCreate, async (message) => {
     // Check if Google Sheets is configured
     if (!process.env.GOOGLE_SHEETS_ID) {
       // Only respond to direct messages or mentions
-      const isDM = message.channel.type === 'DM';
+      const isDM = message.channel.type === '1';
       const isMention = message.mentions.has(client.user);
       
       if (isDM || isMention) {
