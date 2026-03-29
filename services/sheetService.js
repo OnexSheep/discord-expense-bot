@@ -170,12 +170,19 @@ async function getExpenseSummary(userId, options = {}) {
     const rows = await sheet.getRows();
     
     // 💡 關鍵過濾：排除分隔線並使用強型別比對 ID
-let filteredRows = rows.filter(row => {
-  const isData = row.get('Timestamp') !== '---';
-  // 💡 將原本比對 User ID 的邏輯改為比對 Username
-  const rowUsername = String(row.get('Username')); 
-  return isData && rowUsername === String(options.username || expense.username); 
-});
+// 💡 關鍵過濾：排除「標題橫幅」並比對 Username
+    let filteredRows = rows.filter(row => {
+      const usernameInRow = String(row.get('Username'));
+      const timestampInRow = String(row.get('Timestamp'));
+      
+      // 1. 排除標題橫幅 (標題橫幅的 Timestamp 通常包含 "📅" 或 "日期")
+      // 2. 排除空行
+      // 3. 比對名字 (使用傳入的 options.username 或 userId)
+      const isNotHeader = !timestampInRow.includes('📅') && !timestampInRow.includes('日期') && timestampInRow !== '';
+      
+      // 這裡我們比對 Username 欄位
+      return isNotHeader && usernameInRow === String(options.username || userId);
+    });
     
     if (options.category) {
       filteredRows = filteredRows.filter(row => 
