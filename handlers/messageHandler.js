@@ -13,6 +13,8 @@ const currencyMap = {
 };
 
 async function handleMessage(message) {
+  // 💡 僅處理 10 秒內發出的訊息，過濾掉舊實體的堆積訊息
+  if (Date.now() - message.createdTimestamp > 10000) return;
   if (message.author.bot) return;
 
   // 防重複處理
