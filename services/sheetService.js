@@ -1,3 +1,4 @@
+const { Client, GatewayIntentBits, Partials, Collection } = require('discord.js');
 const { GoogleSpreadsheet } = require('google-spreadsheet');
 const { JWT } = require('google-auth-library');
 const { google } = require('googleapis');
@@ -13,7 +14,10 @@ const getCredentials = () => {
   return JSON.parse(envJson);
 };
 
-const getJwtClient = (scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']) => {
+const getJwtClient = (scopes = [
+  'https://www.googleapis.com/auth/spreadsheets',
+  'https://www.googleapis.com/auth/drive'
+]) => {
   try {
     const credentials = getCredentials();
     return new JWT({
@@ -49,19 +53,59 @@ async function addDateDividerIfNeeded(sheet, currentDate) {
       Category: '---',
       Date: currentDate
     });
-    logger.info(`Inserted date divider for ${currentDate}`);
+  }
+}
+
+/**
+ * 核心：建立新試算表 (修正了原本 ReferenceError 的問題)
+ */
+async function createNewSheet(sheetName, makePublic = true) {
+  try {
+    const credentials = getCredentials();
+    const jwtClient = new JWT({
+      email: credentials.client_email,
+      key: credentials.private_key,
+      scopes: [
+        'https://www.googleapis.com/auth/spreadsheets', 
+        'https://www.googleapis.com/auth/drive'
+      ],
+    });
+    
+    const sheets = google.sheets({ version: 'v4', auth: jwtClient });
+    
+    const response = await sheets.spreadsheets.create({
+      resource: {
+        properties: { title: sheetName },
+        sheets: [
+          { properties: { title: 'Expenses', gridProperties: { frozenRowCount: 1 } } }
+        ]
+      }
+    });
+
+    const spreadsheetId = response.data.spreadsheetId;
+    
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: 'Expenses!A1:I1',
+      valueInputOption: 'USER_ENTERED',
+      resource: {
+        values: [['Timestamp', 'User ID', 'Username', 'Amount', 'Currency', 'Amount (TWD)', 'Description', 'Category', 'Date']]
+      }
+    });
+
+    return { spreadsheetId, spreadsheetUrl: response.data.spreadsheetUrl };
+  } catch (error) {
+    logger.error('Error creating new sheet:', error);
+    throw error;
   }
 }
 
 async function addExpenseToSheet(expense) {
   try {
-    if (!process.env.GOOGLE_SHEETS_ID) {
-      throw new Error('Google Sheets ID is not configured. Use /setup first.');
-    }
+    if (!process.env.GOOGLE_SHEETS_ID) throw new Error('Sheet ID not set');
     
     const jwtClient = getJwtClient();
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEETS_ID, jwtClient);
-    
     await doc.loadInfo();
     let sheet = doc.sheetsByTitle['Expenses'];
 
@@ -70,7 +114,6 @@ async function addExpenseToSheet(expense) {
         title: 'Expenses',
         headerValues: ['Timestamp', 'User ID', 'Username', 'Amount', 'Currency', 'Amount (TWD)', 'Description', 'Category', 'Date']
       });
-      await sheet.updateProperties({ gridProperties: { frozenRowCount: 1 } });
     }
     
     const rate = await getExchangeRate(expense.currency, 'TWD');
@@ -82,7 +125,7 @@ async function addExpenseToSheet(expense) {
 
     await sheet.addRow({
       Timestamp: new Date().toISOString(),
-      'User ID': String(expense.userId), // 💡 強制轉字串
+      'User ID': String(expense.userId), // 💡 轉字串避免比對失敗
       Username: expense.username,
       Amount: expense.amount,
       Currency: expense.currency.toUpperCase(),
@@ -112,34 +155,29 @@ async function getExpenseSummary(userId, options = {}) {
     
     const rows = await sheet.getRows();
     
-    // 💡 修正 1：過濾時排除掉分隔線「---」，並強制轉換 ID 型別進行比對
+    // 💡 關鍵過濾：排除分隔線並使用強型別比對 ID
     let filteredRows = rows.filter(row => {
-      const rowUserId = String(row.get('User ID'));
-      const isDivider = row.get('Timestamp') === '---';
-      return !isDivider && rowUserId === String(userId);
+      const rowId = String(row.get('User ID'));
+      const isData = row.get('Timestamp') !== '---';
+      return isData && rowId === String(userId);
     });
     
-    // 💡 修正 2：類別過濾
     if (options.category) {
       filteredRows = filteredRows.filter(row => 
         String(row.get('Category')).toLowerCase() === options.category.toLowerCase()
       );
     }
     
-    // 時間過濾
     if (options.startDate) {
       const start = new Date(options.startDate);
       filteredRows = filteredRows.filter(row => new Date(row.get('Timestamp')) >= start);
     }
     
-    // 💡 修正 3：對應正確的物件屬性，確保 Summary 指令拿得到資料
     const expenses = filteredRows.map(row => ({
       timestamp: row.get('Timestamp'),
-      userId: row.get('User ID'),
-      username: row.get('Username'),
       amount: parseFloat(row.get('Amount')) || 0,
       currency: row.get('Currency'),
-      amountTWD: parseFloat(row.get('Amount (TWD)')) || 0, // 新增這行
+      amountTWD: parseFloat(row.get('Amount (TWD)')) || 0,
       description: row.get('Description'),
       category: row.get('Category')
     }));
@@ -153,9 +191,18 @@ async function getExpenseSummary(userId, options = {}) {
   }
 }
 
-// createNewSheet, validateSheetAccess 保持不變，只需匯出即可
-// (建議保留你原本檔案末尾的 createNewSheet 和 validateSheetAccess 邏輯)
+async function validateSheetAccess(sheetId) {
+  try {
+    const jwtClient = getJwtClient();
+    const doc = new GoogleSpreadsheet(sheetId, jwtClient);
+    await doc.loadInfo();
+    return { success: true, title: doc.title };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
 
+// 匯出所有函式
 module.exports = { 
   addExpenseToSheet, 
   getExpenseSummary, 
