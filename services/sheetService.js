@@ -60,10 +60,10 @@ if (rows.length === 0) {
   const lastRow = rows[rows.length - 1];
   const lastDate = lastRow.get('Date');
 
-  if (lastDate && lastDate !== currentDate) {
-    await sheet.addRow({}); // 空行
-    await sheet.addRow(headerFormat); // 新的一天橫幅
-  }
+if (lastDate && lastDate !== currentDate) {
+  await sheet.addRow({ Timestamp: ' ' }); // 🔑 給定至少一個存在的 Key 與空格/空字串
+  await sheet.addRow(headerFormat);       // 新的一天橫幅
+}
 }
 /**
  * 核心：建立新試算表 (修正了原本 ReferenceError 的問題)
@@ -131,7 +131,13 @@ async function addExpenseToSheet(expense) {
 
     const now = new Date();
     const dateOptions = { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' };
-    const timeOptions = { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+    const timeOptions = { 
+  timeZone: 'Asia/Taipei', 
+  hour: '2-digit', 
+  minute: '2-digit', 
+  second: '2-digit', 
+  hourCycle: 'h23' // 🔑 強制使用 00-23 的小時制
+};
 
     const formattedDate = now.toLocaleDateString('zh-TW', dateOptions);
     const formattedTime = now.toLocaleTimeString('zh-TW', timeOptions);
