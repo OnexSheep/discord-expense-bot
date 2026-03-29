@@ -37,19 +37,22 @@ const getJwtClient = (scopes = [
 async function addDateDividerIfNeeded(sheet, currentDate) {
   const rows = await sheet.getRows();
   const headerFormat = {
-    Timestamp: '📅 日期',
+    Timestamp: '📅 時間',
     'User ID': '👤 使用者',
     Username: '🏷️ 名字',
     Amount: '💰 金額',
     Currency: '💱 幣別',
     'Amount (TWD)': '🇹🇼 台幣',
-    Description: `📢 --- ${currentDate} 帳目紀錄 ---`,
+    Description: `📢 --- 新的一天紀錄開始 ---`,
     Category: '📂 分類',
-    Date: currentDate
+    Date: '📅 日期'
   };
 
-  if (rows.length === 0) {
-    await sheet.addRow(headerFormat);
+if (rows.length === 0) {
+    await sheet.addRow({
+      ...headerFormat,
+      Description: `🚀 --- 記帳起始日 ---`
+    });
     return;
   }
 
@@ -57,10 +60,8 @@ async function addDateDividerIfNeeded(sheet, currentDate) {
   const lastDate = lastRow.get('Date');
 
   if (lastDate && lastDate !== currentDate) {
-    // 插入一個空行隔開
-    await sheet.addRow({});
-    // 插入新的一天的完整標題列
-    await sheet.addRow(headerFormat);
+    await sheet.addRow({}); // 空行
+    await sheet.addRow(headerFormat); // 新的一天橫幅
   }
 }
 /**
@@ -124,10 +125,9 @@ async function addExpenseToSheet(expense) {
     
     const rate = await getExchangeRate(expense.currency, 'TWD');
     
-    // 💡 1. 恢復原始名字 (不再過濾，確保名字顯示)
-    const displayName = expense.username || 'Unknown';
+    // 💡 修正名字：使用傳入的 displayName (即 Sheep)，若無則用 username
+    const finalName = expense.displayName || expense.username || 'Unknown';
 
-    // 💡 2. 台北時區設定
     const now = new Date();
     const dateOptions = { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' };
     const timeOptions = { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
@@ -135,13 +135,12 @@ async function addExpenseToSheet(expense) {
     const formattedDate = now.toLocaleDateString('zh-TW', dateOptions);
     const formattedTime = now.toLocaleTimeString('zh-TW', timeOptions);
 
-    // 💡 3. 檢查並插入「標題型」分隔線
     await addDateDividerIfNeeded(sheet, formattedDate);
 
     await sheet.addRow({
       Timestamp: formattedTime,
-      'User ID': displayName, 
-      Username: displayName,
+      'User ID': finalName, 
+      Username: finalName,
       Amount: expense.amount,
       Currency: expense.currency.toUpperCase(),
       'Amount (TWD)': Math.round(expense.amount * rate),
@@ -156,6 +155,7 @@ async function addExpenseToSheet(expense) {
     throw error;
   }
 }
+
 async function getExpenseSummary(userId, options = {}) {
   try {
     if (!process.env.GOOGLE_SHEETS_ID) throw new Error('Sheet ID missing');
@@ -170,18 +170,15 @@ async function getExpenseSummary(userId, options = {}) {
     const rows = await sheet.getRows();
     
     // 💡 關鍵過濾：排除分隔線並使用強型別比對 ID
-// 💡 關鍵過濾：排除「標題橫幅」並比對 Username
-    let filteredRows = rows.filter(row => {
-      const usernameInRow = String(row.get('Username'));
+let filteredRows = rows.filter(row => {
       const timestampInRow = String(row.get('Timestamp'));
+      const usernameInRow = String(row.get('Username'));
       
-      // 1. 排除標題橫幅 (標題橫幅的 Timestamp 通常包含 "📅" 或 "日期")
-      // 2. 排除空行
-      // 3. 比對名字 (使用傳入的 options.username 或 userId)
-      const isNotHeader = !timestampInRow.includes('📅') && !timestampInRow.includes('日期') && timestampInRow !== '';
+      // 排除橫幅列 (橫幅列的 Timestamp 是圖標或文字，且沒有金額)
+      const isData = !timestampInRow.includes('📅') && row.get('Amount') !== undefined;
       
-      // 這裡我們比對 Username 欄位
-      return isNotHeader && usernameInRow === String(options.username || userId);
+      // 比對名字
+      return isData && usernameInRow === String(options.username || userId);
     });
     
     if (options.category) {
