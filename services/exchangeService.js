@@ -11,18 +11,21 @@ async function getExchangeRate(fromCurrency, toCurrency = 'TWD') {
   }
 
   try {
-    if (!yahooFinance) {
+if (!yahooFinance) {
       const moduleNamespace = await import('yahoo-finance2');
-      // 💡 根據你的日誌，這一步是關鍵：
-      yahooFinance = moduleNamespace.default;
       
-      // 如果還有一層 (有些工具轉譯會變這樣)，再往內找
-      if (yahooFinance && yahooFinance.default) {
-        yahooFinance = yahooFinance.default;
+      // 🚀 自動展開所有層級的 .default
+      let target = moduleNamespace;
+      while (target && target.default && !target.quote) {
+        target = target.default;
       }
+      yahooFinance = target;
     }
 
+    // 檢查抓到的對象
     if (yahooFinance && typeof yahooFinance.quote === 'function') {
+      // 💡 某些版本需要使用 .quote(pair)，某些則掛在 .default 下
+      // 這裡直接呼叫我們找到的函式
       const result = await yahooFinance.quote(pair);
       const rate = result?.regularMarketPrice || result?.bid || result?.ask;
 
