@@ -6,25 +6,32 @@ async function getExchangeRate(fromCurrency, toCurrency = 'TWD') {
   if (fromCurrency === toCurrency) return 1;
   const pair = `${fromCurrency}${toCurrency}=X`;
 
+  // 1. 檢查快取
   if (rateCache[pair] && (Date.now() - rateCache[pair].time < 3600000)) {
     return rateCache[pair].rate;
   }
 
   try {
+    // 2. 動態載入模組
     if (!yahooFinance) {
       const module = await import('yahoo-finance2');
-      // 🚀 最保險的抓取方式：嘗試所有可能的入口
+      // 🚀 針對 Render/ESM 的多層結構進行剝離
       yahooFinance = module.default?.default || module.default || module;
-      
-      // 除錯用：如果還是失敗，印出完整的型態
-      if (typeof yahooFinance.quote !== 'function') {
-        logger.warn(`YahooFinance structure: ${typeof yahooFinance}, keys: ${Object.keys(yahooFinance)}`);
-      }
     }
 
+    let result;
+    // 3. 根據不同的模組導出方式進行呼叫
     if (yahooFinance && typeof yahooFinance.quote === 'function') {
-      const result = await yahooFinance.quote(pair);
-      // 💡 修正：Yahoo Finance 有時會回傳陣列或物件，這裡做個相容處理
+      result = await yahooFinance.quote(pair);
+    } else if (typeof yahooFinance === 'function') {
+      // 💡 應對日誌顯示的 "structure: function"
+      result = await yahooFinance(pair);
+    } else if (yahooFinance?.default?.quote) {
+      result = await yahooFinance.default.quote(pair);
+    }
+
+    // 4. 解析數據
+    if (result) {
       const quoteData = Array.isArray(result) ? result[0] : result;
       const rate = quoteData?.regularMarketPrice || quoteData?.bid || quoteData?.ask;
 
@@ -34,14 +41,13 @@ async function getExchangeRate(fromCurrency, toCurrency = 'TWD') {
       }
     }
     
-    throw new Error("無法從 API 取得有效匯率");
+    throw new Error("API result format invalid or empty");
 
   } catch (error) {
     logger.error(`Yahoo Finance Error for ${pair}: ${error.message}`);
-    // 💡 6 月大阪保底機制
-    if (fromCurrency.toUpperCase() === 'JPY') return 0.21;
-    return 1;
+    // 💡 6 月大阪保底機制：JPY 給 0.21，其餘 1
+    return (fromCurrency.toUpperCase() === 'JPY') ? 0.21 : 1;
   }
-}
+} // <-- 剛才漏掉的這個括號補上了
 
-module.exports = { getExchangeRate };
+module.exports = { getExchangeRate };;
