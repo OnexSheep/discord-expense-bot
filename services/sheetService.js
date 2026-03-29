@@ -61,14 +61,23 @@ async function addDateDividerIfNeeded(sheet, currentDate) {
   const lastDate = lastRow.get('Date');
 
   if (lastDate && lastDate !== currentDate) {
-    // 🔑 迴圈跑 4 次，插入 4 行「看起來是空的」列
-    // 使用 \u00A0 (Non-breaking space)，這在 Google Sheets 裡最不容易被過濾
-    for (let i = 0; i < 4; i++) {
-      await sheet.addRow({ Timestamp: '\u00A0' }); 
-    }
+    // 💡 建立一個「偽空白行」物件
+    // 同時填充三個欄位，確保 API 認定這是一行「有意義但看不見」的資料
+    const blankRow = { 
+      Timestamp: '\u200B', 
+      Description: '\u200B', 
+      Date: '\u200B' 
+    };
 
-    // 插入新的一天標題（這是第 5 行）
-    await sheet.addRow(headerFormat);
+    // 🔑 關鍵：使用 addRows 一次性寫入 5 行 (4行空白 + 1行標題)
+    // 這能避免 Google API 因為連續請求而忽略掉空白列
+    await sheet.addRows([
+      blankRow,
+      blankRow,
+      blankRow,
+      blankRow,
+      headerFormat
+    ]);
   }
 }
 /**
