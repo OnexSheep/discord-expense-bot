@@ -37,17 +37,11 @@ const getJwtClient = (scopes = [
 async function addDateDividerIfNeeded(sheet, currentDate) {
   const rows = await sheet.getRows();
   
-  // 💡 邏輯 A：如果是完全空白的新表，直接插入第一天的分隔列
+  // 💡 如果是新表，插入漂亮的第一天橫幅
   if (rows.length === 0) {
     await sheet.addRow({
-      Timestamp: '---',
-      'User ID': '---',
-      Username: '---',
-      Amount: '---',
-      Currency: '---',
-      'Amount (TWD)': '---',
-      Description: `📅 記帳起始日：${currentDate} ----------------`,
-      Category: '---',
+      Timestamp: '⭐', // 用星星代替 ---
+      Description: `┏━━━━━ 📅 記帳起始日：${currentDate} ━━━━━┓`,
       Date: currentDate
     });
     return;
@@ -56,20 +50,12 @@ async function addDateDividerIfNeeded(sheet, currentDate) {
   const lastRow = rows[rows.length - 1];
   const lastDate = lastRow.get('Date');
 
-  // 💡 邏輯 B：如果最後一列日期跟今天不同，且最後一列不是分隔線本身，就插入新的一天
   if (lastDate && lastDate !== currentDate) {
-    // 檢查最後一列的內容，避免重複插入分隔線
     const lastDesc = lastRow.get('Description') || '';
     if (!lastDesc.includes('📅')) {
       await sheet.addRow({
-        Timestamp: '---',
-        'User ID': '---',
-        Username: '---',
-        Amount: '---',
-        Currency: '---',
-        'Amount (TWD)': '---',
-        Description: `📅 新的一天：${currentDate} ----------------`,
-        Category: '---',
+        Timestamp: '📅',
+        Description: `┏━━━━━ 🌅 新的一天：${currentDate} ━━━━━┓`,
         Date: currentDate
       });
     }
@@ -138,35 +124,31 @@ async function addExpenseToSheet(expense) {
     
     const rate = await getExchangeRate(expense.currency, 'TWD');
     
-    // 💡 取得當前時間物件
+    // 💡 1. 處理名字：過濾掉所有 Emoji 與特殊符號，只留文字/數字
+    // 這會把 "Sheep 🐾" 變成 "Sheep"
+    const cleanUsername = expense.username ? expense.username.replace(/[\u\d000-\u\dfff]|[\u2000-\u3000]/g, '').trim() : 'Unknown';
+
+    // 💡 2. 強制台北時區 (UTC+8)
     const now = new Date();
+    const dateOptions = { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' };
+    const timeOptions = { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
 
-    // 💡 1. 日期格式：2026/03/29 (用於 Date 欄位與分隔線判斷)
-    const formattedDate = now.toLocaleDateString('zh-TW', { 
-      year: 'numeric', month: '2-digit', day: '2-digit' 
-    });
+    const formattedDate = now.toLocaleDateString('zh-TW', dateOptions); // 2026/03/29
+    const formattedTime = now.toLocaleTimeString('zh-TW', timeOptions); // 14:05:30
 
-    // 💡 2. 純時間格式：13:54:20 (用於 Timestamp 欄位)
-    const formattedTime = now.toLocaleTimeString('zh-TW', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-
-    // 檢查並插入分隔橫幅
+    // 檢查並插入漂亮的分隔橫幅
     await addDateDividerIfNeeded(sheet, formattedDate);
 
-await sheet.addRow({
-      Timestamp: formattedTime,           // 只存時間，例如 14:05:30
-      'User ID': expense.username,        // 💡 這裡原本存數字，現在改存顯示名稱
-      Username: expense.username,         // 這裡同樣存顯示名稱
+    await sheet.addRow({
+      Timestamp: formattedTime,
+      'User ID': cleanUsername,        // 💡 欄位顯示純文字名字
+      Username: cleanUsername,         // 💡 欄位顯示純文字名字
       Amount: expense.amount,
       Currency: expense.currency.toUpperCase(),
       'Amount (TWD)': Math.round(expense.amount * rate),
       Description: expense.description,
       Category: expense.category || 'Uncategorized',
-      Date: formattedDate                 // 日期存在這裡
+      Date: formattedDate
     });
     
     return true;
