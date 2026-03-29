@@ -37,11 +37,10 @@ const getJwtClient = (scopes = [
 async function addDateDividerIfNeeded(sheet, currentDate) {
   const rows = await sheet.getRows();
   
-  // 💡 如果是新表，插入漂亮的第一天橫幅
   if (rows.length === 0) {
     await sheet.addRow({
-      Timestamp: '⭐', // 用星星代替 ---
-      Description: `┏━━━━━ 📅 記帳起始日：${currentDate} ━━━━━┓`,
+      Timestamp: '⭐', 
+      Description: `──────────────── 📅 記帳起始日：${currentDate} ────────────────`,
       Date: currentDate
     });
     return;
@@ -54,14 +53,13 @@ async function addDateDividerIfNeeded(sheet, currentDate) {
     const lastDesc = lastRow.get('Description') || '';
     if (!lastDesc.includes('📅')) {
       await sheet.addRow({
-        Timestamp: '📅',
-        Description: `┏━━━━━ 🌅 新的一天：${currentDate} ━━━━━┓`,
+        Timestamp: '🌅',
+        Description: `──────────────── 🌅 新的一天：${currentDate} ────────────────`,
         Date: currentDate
       });
     }
   }
 }
-
 /**
  * 核心：建立新試算表 (修正了原本 ReferenceError 的問題)
  */
@@ -109,7 +107,6 @@ async function createNewSheet(sheetName, makePublic = true) {
 async function addExpenseToSheet(expense) {
   try {
     if (!process.env.GOOGLE_SHEETS_ID) throw new Error('Sheet ID not set');
-    
     const jwtClient = getJwtClient();
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEETS_ID, jwtClient);
     await doc.loadInfo();
@@ -124,25 +121,24 @@ async function addExpenseToSheet(expense) {
     
     const rate = await getExchangeRate(expense.currency, 'TWD');
     
-    // 💡 1. 處理名字：過濾掉所有 Emoji 與特殊符號，只留文字/數字
-    // 這會把 "Sheep 🐾" 變成 "Sheep"
-    const cleanUsername = expense.username ? expense.username.replace(/[\u\d000-\u\dfff]|[\u2000-\u3000]/g, '').trim() : 'Unknown';
+    // 💡 修正後的過濾邏輯：移除特殊 Emoji，但保留所有中文、英文、數字
+    const cleanUsername = expense.username ? 
+      expense.username.replace(/[\u\d000-\u\dfff]|[\u2000-\u3000]/g, '').trim() || expense.username : 
+      'Unknown';
 
-    // 💡 2. 強制台北時區 (UTC+8)
     const now = new Date();
     const dateOptions = { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' };
     const timeOptions = { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
 
-    const formattedDate = now.toLocaleDateString('zh-TW', dateOptions); // 2026/03/29
-    const formattedTime = now.toLocaleTimeString('zh-TW', timeOptions); // 14:05:30
+    const formattedDate = now.toLocaleDateString('zh-TW', dateOptions);
+    const formattedTime = now.toLocaleTimeString('zh-TW', timeOptions);
 
-    // 檢查並插入漂亮的分隔橫幅
     await addDateDividerIfNeeded(sheet, formattedDate);
 
     await sheet.addRow({
       Timestamp: formattedTime,
-      'User ID': cleanUsername,        // 💡 欄位顯示純文字名字
-      Username: cleanUsername,         // 💡 欄位顯示純文字名字
+      'User ID': cleanUsername,
+      Username: cleanUsername,
       Amount: expense.amount,
       Currency: expense.currency.toUpperCase(),
       'Amount (TWD)': Math.round(expense.amount * rate),
