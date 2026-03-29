@@ -137,10 +137,10 @@ async function addExpenseToSheet(expense) {
 
     await addDateDividerIfNeeded(sheet, formattedDate);
 
-    await sheet.addRow({
+  await sheet.addRow({
       Timestamp: formattedTime,
-      'User ID': finalName, 
-      Username: finalName,
+      'User ID': expense.displayName, // 顯示Display name
+      Username: expense.username,     // 顯示帳號 unique username
       Amount: expense.amount,
       Currency: expense.currency.toUpperCase(),
       'Amount (TWD)': Math.round(expense.amount * rate),
