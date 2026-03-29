@@ -49,7 +49,7 @@ async function addDateDividerIfNeeded(sheet, currentDate) {
     Date: '📅 日期'
   };
 
-if (rows.length === 0) {
+  if (rows.length === 0) {
     await sheet.addRow({
       ...headerFormat,
       Description: `🚀 --- 記帳起始日 ---`
@@ -60,14 +60,16 @@ if (rows.length === 0) {
   const lastRow = rows[rows.length - 1];
   const lastDate = lastRow.get('Date');
 
-if (lastDate && lastDate !== currentDate) {
-  // 🔑 使用 \u200B (零寬度空格) 騙過 Google Sheets 的防呆機制
-  await sheet.addRow({ Timestamp: '\u200B' });
-  await sheet.addRow({ Timestamp: '\u200B' });
-  await sheet.addRow({ Timestamp: '\u200B' });
-  await sheet.addRow({ Timestamp: '\u200B' });
-  await sheet.addRow(headerFormat);       // 新的一天橫幅
-}
+  if (lastDate && lastDate !== currentDate) {
+    // 🔑 迴圈跑 4 次，插入 4 行「看起來是空的」列
+    // 使用 \u00A0 (Non-breaking space)，這在 Google Sheets 裡最不容易被過濾
+    for (let i = 0; i < 4; i++) {
+      await sheet.addRow({ Timestamp: '\u00A0' }); 
+    }
+
+    // 插入新的一天標題（這是第 5 行）
+    await sheet.addRow(headerFormat);
+  }
 }
 /**
  * 核心：建立新試算表 (修正了原本 ReferenceError 的問題)
@@ -182,12 +184,13 @@ async function getExpenseSummary(userId, options = {}) {
     
     // 💡 關鍵過濾：排除分隔線並使用強型別比對 ID
 let filteredRows = rows.filter(row => {
-      const timestampInRow = String(row.get('Timestamp'));
+      const timestampInRow = String(row.get('Timestamp') || '');
       const usernameInRow = String(row.get('Username'));
       
       // 💡 排除包含時鐘圖案或日期文字的標題列，且確保金額欄位有數字
       const isData = !timestampInRow.includes('🕒') && 
                      !timestampInRow.includes('📅') && 
+                     row.get('Amount') !== null &&
                      row.get('Amount') !== undefined && 
                      row.get('Amount') !== '';
       
