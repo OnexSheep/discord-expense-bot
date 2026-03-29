@@ -69,10 +69,15 @@ async function handleMessage(message) {
         }
       }
 
+// 💡 修正：抓取 Discord 的顯示名稱 (DisplayName)
+      const member = message.member || (message.guild ? await message.guild.members.fetch(message.author.id).catch(() => null) : null);
+      const displayName = member ? member.displayName : (message.author.globalName || message.author.username);
+
       await addExpenseToSheet({
         ...expense,
         userId: message.author.id,
-        username: message.author.username,
+        username: message.author.username, // 帳號名備份
+        displayName: displayName,          // 💡 這就是你要的 "Sheep"
         timestamp: new Date().toISOString()
       });
       
