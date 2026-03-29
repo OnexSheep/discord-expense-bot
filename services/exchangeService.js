@@ -11,28 +11,34 @@ async function getExchangeRate(fromCurrency, toCurrency = 'TWD') {
     return rateCache[pair].rate;
   }
 
-  try {
-    // 2. 動態載入模組
+try {
     if (!yahooFinance) {
       const module = await import('yahoo-finance2');
-      // 🚀 針對 Render/ESM 的多層結構進行剝離
-      yahooFinance = module.default?.default || module.default || module;
+      // 🚀 核心修正：針對 "Class constructor" 的處理
+      // 如果 module.default 是個導出，嘗試取得它
+      const YF = module.default || module;
+      
+      // 如果它是一個需要 'new' 的 Class，我們建立實例；否則直接使用
+      try {
+        yahooFinance = (typeof YF === 'function' && YF.prototype) ? new YF() : YF;
+      } catch (e) {
+        yahooFinance = YF;
+      }
     }
 
     let result;
-    // 3. 根據不同的模組導出方式進行呼叫
-    if (yahooFinance && typeof yahooFinance.quote === 'function') {
+    // 💡 優先嘗試 .quote 方法
+    if (yahooFinance.quote && typeof yahooFinance.quote === 'function') {
       result = await yahooFinance.quote(pair);
-    } else if (typeof yahooFinance === 'function') {
-      // 💡 應對日誌顯示的 "structure: function"
+    } 
+    // 💡 備援方案：如果 yahooFinance 本身就是一個可呼叫的函式
+    else if (typeof yahooFinance === 'function') {
       result = await yahooFinance(pair);
-    } else if (yahooFinance?.default?.quote) {
-      result = await yahooFinance.default.quote(pair);
     }
 
-    // 4. 解析數據
     if (result) {
       const quoteData = Array.isArray(result) ? result[0] : result;
+      // 這裡要精準抓取欄位
       const rate = quoteData?.regularMarketPrice || quoteData?.bid || quoteData?.ask;
 
       if (typeof rate === 'number' && rate > 0) {
@@ -41,12 +47,13 @@ async function getExchangeRate(fromCurrency, toCurrency = 'TWD') {
       }
     }
     
-    throw new Error("API result format invalid or empty");
+    throw new Error("無法從 API 取得有效數值");
 
   } catch (error) {
     logger.error(`Yahoo Finance Error for ${pair}: ${error.message}`);
-    // 💡 6 月大阪保底機制：JPY 給 0.21，其餘 1
-    return (fromCurrency.toUpperCase() === 'JPY') ? 0.21 : 1;
+    // 💡 保底機制：只要是 JPYTWD，API 噴錯就給 0.21
+    if (pair.startsWith('JPYTWD')) return 0.21;
+    return 1;
   }
 } // <-- 剛才漏掉的這個括號補上了
 
