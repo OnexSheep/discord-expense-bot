@@ -157,16 +157,16 @@ async function addExpenseToSheet(expense) {
     // 檢查並插入分隔橫幅
     await addDateDividerIfNeeded(sheet, formattedDate);
 
-    await sheet.addRow({
-      Timestamp: formattedTime,           // 💡 只存時間，例如 14:05:30
-      'User ID': String(expense.userId),
-      Username: expense.username,         // 💡 存入 Discord 顯示名稱
+await sheet.addRow({
+      Timestamp: formattedTime,           // 只存時間，例如 14:05:30
+      'User ID': expense.username,        // 💡 這裡原本存數字，現在改存顯示名稱
+      Username: expense.username,         // 這裡同樣存顯示名稱
       Amount: expense.amount,
       Currency: expense.currency.toUpperCase(),
       'Amount (TWD)': Math.round(expense.amount * rate),
       Description: expense.description,
       Category: expense.category || 'Uncategorized',
-      Date: formattedDate                 // 💡 日期存在這裡
+      Date: formattedDate                 // 日期存在這裡
     });
     
     return true;
