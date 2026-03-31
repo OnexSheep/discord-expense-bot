@@ -74,8 +74,6 @@ async function addDateDividerIfNeeded(sheet, currentDate) {
     await sheet.addRows([
       blankRow,
       blankRow,
-      blankRow,
-      blankRow,
       headerFormat
     ]);
   }
